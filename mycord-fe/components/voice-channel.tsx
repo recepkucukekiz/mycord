@@ -85,6 +85,7 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
         socket.emit("BE-join-room", { roomId, userName: currentUser });
 
         socket.on("FE-user-join", (users: { userId: string; info: any }[]) => {
+          console.log("[RTC] FE-user-join", users);
           const peers: PeerInstance[] = [];
           users.forEach(({ userId, info }) => {
             const { userName, video, audio } = info;
@@ -105,6 +106,7 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
         });
 
         socket.on("FE-receive-call", ({ signal, from, info }) => {
+          console.log("[RTC] FE-receive-call", from, info);
           const { userName, video, audio } = info;
           const peer = addPeer(signal, from, stream);
 
@@ -118,11 +120,13 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
         });
 
         socket.on("FE-call-accepted", ({ signal, answerId }) => {
+          console.log("[RTC] FE-call-accepted", answerId);
           const peerIdx = findPeer(answerId);
           peerIdx?.peer.signal(signal);
         });
 
         socket.on("FE-user-leave", ({ userId, userName }) => {
+          console.log("[RTC] FE-user-leave", userId, userName);
           const peerIdx = findPeer(userId);
           peerIdx?.peer.destroy();
           setPeers((users) =>
@@ -137,6 +141,7 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
       });
 
     socket.on("FE-toggle-camera", ({ userId, switchTarget }) => {
+      console.log("[RTC] FE-toggle-camera", userId, switchTarget);
       const peerIdx = findPeer(userId);
       if (!peerIdx) return;
 
@@ -161,15 +166,20 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
   }, [roomId, currentUser]);
 
   const createPeer = (userId: string, caller: string, stream: MediaStream) => {
+    console.log("[RTC] createPeer", userId, caller);
     const peer = new Peer({
       initiator: true,
       trickle: false,
       stream,
     });
     peer.on("signal", (signal) => {
+      console.log("[RTC] createPeer signal BE-call-user", userId, caller);
       socket.emit("BE-call-user", { userToCall: userId, from: caller, signal });
     });
-    peer.on("disconnect", () => peer.destroy());
+    peer.on("disconnect", () => {
+      console.log("[RTC] createPeer disconnect", userId);
+      peer.destroy();
+    });
     return peer as PeerInstance;
   };
 
@@ -178,8 +188,10 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
     callerId: string,
     stream: MediaStream
   ) => {
+    console.log("[RTC] addPeer", incomingSignal, callerId);
     const peer = new Peer({ initiator: false, trickle: false, stream });
     peer.on("signal", (signal) => {
+      console.log("[RTC] addPeer signal BE-accept-call", callerId);
       socket.emit("BE-accept-call", { signal, to: callerId });
     });
     peer.signal(incomingSignal);
@@ -190,6 +202,7 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
     peersRef.current.find((p) => p.peerID === id);
 
   const goToBack = () => {
+    console.log("[RTC] goToBack BE-leave-room");
     socket.emit("BE-leave-room", { roomId, leaver: currentUser });
     // sessionStorage.removeItem("user");
     // router.push("/");
@@ -213,6 +226,7 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
 
       return { ...prev, localUser: { video: videoSwitch, audio: audioSwitch } };
     });
+    console.log("[RTC] toggleCameraAudio BE-toggle-camera-audio", target);
     socket.emit("BE-toggle-camera-audio", { roomId, switchTarget: target });
   };
 

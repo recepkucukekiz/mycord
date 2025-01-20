@@ -15,9 +15,9 @@ import { useState } from "react";
 import { setCookie } from "cookies-next";
 import { AUTH_KEY } from "@/constants";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation";
 import { useAppDispatch } from "@/store/hooks";
 import { setAuthTokens } from "@/store/state";
+import { useRouter } from "@/app/navigation";
 
 export function LoginForm({
   formTypeChanger,

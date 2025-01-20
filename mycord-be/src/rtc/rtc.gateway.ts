@@ -34,19 +34,6 @@ export class RTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
     delete this.socketList[socket.id];
   }
 
-  @SubscribeMessage('BE-check-user')
-  async checkUser(
-    @MessageBody() data: { roomId: string; userName: string },
-    @ConnectedSocket() socket: Socket,
-  ) {
-    const { roomId, userName } = data;
-    console.log('[RTC] BE-check-user', roomId, userName);
-
-    const clients = await this.server.in(roomId).fetchSockets();
-    const error = clients.some((client) => this.socketList[client.id]?.userName === userName);
-
-    socket.emit('FE-error-user-exist', { error });
-  }
 
   @SubscribeMessage('BE-join-room')
   async joinRoom(
