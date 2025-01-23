@@ -8,7 +8,7 @@ export interface AppState {
   user: User | null;
   isMicDisabled: boolean;
   isHeadphoneDisabled: boolean;
-  isVideoEnabled: boolean;
+  isVideoDisabled: boolean;
   currentServer: ServerDetail | null;
   rtcUserId: string | null;
   onlineUsers: { id: string; user: User }[];
@@ -22,7 +22,7 @@ const initialState: AppState = {
   user: null,
   isMicDisabled: getCookie("isMicDisabled") === "true",
   isHeadphoneDisabled: getCookie("isHeadphoneDisabled") === "true",
-  isVideoEnabled: getCookie("isVideoEnabled") === "false",
+  isVideoDisabled: getCookie("isVideoDisabled") === "true",
   currentServer: null,
   rtcUserId: null,
   onlineUsers: [],
@@ -63,12 +63,12 @@ export const appState = createSlice({
       state.isHeadphoneDisabled = payload.value;
       setCookie("isHeadphoneDisabled", payload.value.toString());
     },
-    setIsVideoEnabled: (
+    setIsVideoDisabled: (
       state,
       { payload }: PayloadAction<{ value: boolean }>
     ) => {
-      state.isVideoEnabled = payload.value;
-      setCookie("isVideoEnabled", payload.value.toString());
+      state.isVideoDisabled = payload.value;
+      setCookie("isVideoDisabled", payload.value.toString());
     },
     setCurrentServer: (state, { payload }: PayloadAction<ServerDetail>) => {
       state.currentServer = payload;
@@ -118,7 +118,7 @@ export const {
   setUser,
   setIsMicDisabled,
   setIsHeadphoneDisabled,
-  setIsVideoEnabled,
+  setIsVideoDisabled,
   setCurrentServer,
   setUserId,
   setOnlineUsers,

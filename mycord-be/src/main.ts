@@ -16,7 +16,8 @@ async function bootstrap() {
           'http://localhost:3000',
           'http://localhost:3001',
           'http://212.154.12.106:3000',
-          'http://192.168.1.20:3000'
+          'http://192.168.1.20:3000',
+          'http://192.168.1.34:3000'
         ].indexOf(origin) !== -1
       ) {
         return callback(null, true);

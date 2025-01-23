@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Provider } from "react-redux";
 import { store } from "@/store/store";
 import { IntlErrorCode, NextIntlClientProvider } from "next-intl";
+import SocketProvider from "@/components/socket-provider";
 
 export default function Providers({
   children,
@@ -34,6 +35,7 @@ export default function Providers({
           onError={handleError}>
           {children}
           <Toaster />
+          <SocketProvider />
         </NextIntlClientProvider>
       </ThemeProvider>
     </Provider>

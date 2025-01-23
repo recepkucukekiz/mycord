@@ -17,7 +17,6 @@ import {
   useGetServersQuery,
   useAddServerMutation,
 } from "@/store/services/appService";
-import SocketProvider from "../socket-provider";
 import {
   Dialog,
   DialogContent,
@@ -84,7 +83,6 @@ export function LeftSidebar({
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SocketProvider />
       <SidebarHeader>
         <Button size="sm" className="w-full">
           <Link href="/app">MY</Link>

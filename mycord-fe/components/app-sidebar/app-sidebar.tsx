@@ -160,7 +160,7 @@ export default function AppSidebar({
           <Separator />
           <div className="flex items-center justify-between gap-1 w-full p-2">
             <NavUser />
-            <div className="flex items-center">
+            {/* <div className="flex items-center">
               <ToggleGroup
                 defaultValue={[
                   isMicDisabled ? "mic" : "",
@@ -185,7 +185,7 @@ export default function AppSidebar({
                   )}
                 </ToggleGroupItem>
               </ToggleGroup>
-            </div>
+            </div> */}
           </div>
         </div>
       </SidebarFooter>

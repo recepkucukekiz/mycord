@@ -1,6 +1,11 @@
 "use client";
-import { useState, useEffect, useRef, MouseEventHandler } from "react";
-import { addToSocketEventQueue } from "@/store/state";
+import { useState, useEffect, useRef, MouseEventHandler, use } from "react";
+import {
+  addToSocketEventQueue,
+  setIsHeadphoneDisabled,
+  setIsMicDisabled,
+  setIsVideoDisabled,
+} from "@/store/state";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -11,16 +16,15 @@ import { Input } from "./ui/input";
 import Peer from "simple-peer";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
-// const colors = ["blue", "green", "red", "yellow", "purple", "pink", "indigo"];
-
-// const users = Array.from({ length: 30 }).map((_, i, a) => {
-//   return {
-//     id: i,
-//     color: colors[i % colors.length],
-//     name: `User ${i + 1}`,
-//     avatar: "https://xsgames.co/randomusers/avatar.php?g=male",
-//   };
-// });
+import { ToggleGroup, ToggleGroupItem } from "@radix-ui/react-toggle-group";
+import {
+  MicOff,
+  Mic,
+  HeadphoneOff,
+  Headphones,
+  Video,
+  VideoOff,
+} from "lucide-react";
 
 interface VideoAudio {
   video: boolean;
@@ -42,8 +46,25 @@ interface PeerRef {
   userName: string;
 }
 
+const expandScreen = (e: any) => {
+  const elem = e.target;
+
+  if (elem.requestFullscreen) {
+    elem.requestFullscreen();
+  } else if (elem.mozRequestFullScreen) {
+    /* Firefox */
+    elem.mozRequestFullScreen();
+  } else if (elem.webkitRequestFullscreen) {
+    /* Chrome, Safari & Opera */
+    elem.webkitRequestFullscreen();
+  } else if (elem.msRequestFullscreen) {
+    /* IE/Edge */
+    elem.msRequestFullscreen();
+  }
+};
+
 export default function VoiceChannel({ channelId }: { channelId: string }) {
-  const socket = io(process.env.NEXT_PUBLIC_API_URL + "/rtc");
+  const [socket, setSocket] = useState<Socket | undefined>();
   const user = useAppSelector((state) => state.app.user);
   const currentUser = user?.name || "User Unknown";
   const [peers, setPeers] = useState<PeerInstance[]>([]);
@@ -61,6 +82,61 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
   const screenTrackRef = useRef<MediaStreamTrack | null>(null);
   const userStream = useRef<MediaStream | null>(null);
   const roomId = channelId;
+
+  const isMicDisabled = useAppSelector((state) => state.app.isMicDisabled);
+  const isHeadphoneDisabled = useAppSelector(
+    (state) => state.app.isHeadphoneDisabled
+  );
+  const isVideoDisabled = useAppSelector((state) => state.app.isVideoDisabled);
+
+  const disapatch = useAppDispatch();
+
+  const toggleMic = () => {
+    disapatch(setIsMicDisabled({ value: !isMicDisabled }));
+    setUserVideoAudio((prev) => {
+      if (userStream.current) {
+        const audioTrack = userStream.current.getAudioTracks()[0];
+        console.log("audioTrack", audioTrack);
+        if (audioTrack) audioTrack.enabled = !prev.localUser.audio;
+      }
+      return {
+        ...prev,
+        localUser: {
+          video: prev.localUser.video,
+          audio: !prev.localUser.audio,
+        },
+      };
+    });
+    socket?.emit("BE-toggle-camera-audio", { roomId, switchTarget: "audio" });
+  };
+
+  const toggleHeadphone = () => {
+    disapatch(setIsHeadphoneDisabled({ value: !isHeadphoneDisabled }));
+  };
+
+  const toggleVideo = () => {
+    disapatch(setIsVideoDisabled({ value: !isVideoDisabled }));
+    setUserVideoAudio((prev) => {
+      if (userVideoRef.current) {
+        //@ts-ignore
+        const videoTrack = userVideoRef.current.srcObject?.getVideoTracks()[0];
+        if (videoTrack) videoTrack.enabled = !prev.localUser.video;
+      }
+
+      return {
+        ...prev,
+        localUser: {
+          video: !prev.localUser.video,
+          audio: prev.localUser.audio,
+        },
+      };
+    });
+    socket?.emit("BE-toggle-camera-audio", { roomId, switchTarget: "video" });
+  };
+
+  useEffect(() => {
+    setSocket(io(process.env.NEXT_PUBLIC_API_URL + "/rtc"));
+  }, []);
 
   useEffect(() => {
     console.log("VoiceChannel useEffect");
@@ -82,16 +158,16 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
         }
         userStream.current = stream;
 
-        socket.emit("BE-join-room", { roomId, userName: currentUser });
+        socket?.emit("BE-join-room", { roomId, userName: currentUser });
 
-        socket.on("FE-user-join", (users: { userId: string; info: any }[]) => {
+        socket?.on("FE-user-join", (users: { userId: string; info: any }[]) => {
           console.log("[RTC] FE-user-join", users);
           const peers: PeerInstance[] = [];
           users.forEach(({ userId, info }) => {
             const { userName, video, audio } = info;
 
             if (userName !== currentUser) {
-              const peer = createPeer(userId, socket.id || "", stream);
+              const peer = createPeer(userId, socket?.id || "", stream);
               peer.userName = userName;
               peersRef.current.push({ peerID: userId, peer, userName });
               peers.push(peer);
@@ -105,7 +181,7 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
           setPeers(peers);
         });
 
-        socket.on("FE-receive-call", ({ signal, from, info }) => {
+        socket?.on("FE-receive-call", ({ signal, from, info }) => {
           console.log("[RTC] FE-receive-call", from, info);
           const { userName, video, audio } = info;
           const peer = addPeer(signal, from, stream);
@@ -119,13 +195,13 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
           }));
         });
 
-        socket.on("FE-call-accepted", ({ signal, answerId }) => {
+        socket?.on("FE-call-accepted", ({ signal, answerId }) => {
           console.log("[RTC] FE-call-accepted", answerId);
           const peerIdx = findPeer(answerId);
           peerIdx?.peer.signal(signal);
         });
 
-        socket.on("FE-user-leave", ({ userId, userName }) => {
+        socket?.on("FE-user-leave", ({ userId, userName }) => {
           console.log("[RTC] FE-user-leave", userId, userName);
           const peerIdx = findPeer(userId);
           peerIdx?.peer.destroy();
@@ -140,7 +216,7 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
         });
       });
 
-    socket.on("FE-toggle-camera", ({ userId, switchTarget }) => {
+    socket?.on("FE-toggle-camera", ({ userId, switchTarget }) => {
       console.log("[RTC] FE-toggle-camera", userId, switchTarget);
       const peerIdx = findPeer(userId);
       if (!peerIdx) return;
@@ -160,10 +236,12 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
     });
 
     return () => {
+      // release camera & mic
+      userStream.current?.getTracks().forEach((track) => track.stop());
       goToBack();
-      socket.disconnect();
+      socket?.disconnect();
     };
-  }, [roomId, currentUser]);
+  }, [socket, roomId, currentUser]);
 
   const createPeer = (userId: string, caller: string, stream: MediaStream) => {
     console.log("[RTC] createPeer", userId, caller);
@@ -174,7 +252,11 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
     });
     peer.on("signal", (signal) => {
       console.log("[RTC] createPeer signal BE-call-user", userId, caller);
-      socket.emit("BE-call-user", { userToCall: userId, from: caller, signal });
+      socket?.emit("BE-call-user", {
+        userToCall: userId,
+        from: caller,
+        signal,
+      });
     });
     peer.on("disconnect", () => {
       console.log("[RTC] createPeer disconnect", userId);
@@ -192,7 +274,7 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
     const peer = new Peer({ initiator: false, trickle: false, stream });
     peer.on("signal", (signal) => {
       console.log("[RTC] addPeer signal BE-accept-call", callerId);
-      socket.emit("BE-accept-call", { signal, to: callerId });
+      socket?.emit("BE-accept-call", { signal, to: callerId });
     });
     peer.signal(incomingSignal);
     return peer as PeerInstance;
@@ -203,31 +285,9 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
 
   const goToBack = () => {
     console.log("[RTC] goToBack BE-leave-room");
-    socket.emit("BE-leave-room", { roomId, leaver: currentUser });
+    socket?.emit("BE-leave-room", { roomId, leaver: currentUser });
     // sessionStorage.removeItem("user");
     // router.push("/");
-  };
-
-  const toggleCameraAudio = (target: "video" | "audio") => {
-    setUserVideoAudio((prev) => {
-      const videoSwitch =
-        target === "video" ? !prev.localUser.video : prev.localUser.video;
-      const audioSwitch =
-        target === "audio" ? !prev.localUser.audio : prev.localUser.audio;
-
-      if (target === "video" && userVideoRef.current) {
-        //@ts-ignore
-        const videoTrack = userVideoRef.current.srcObject?.getVideoTracks()[0];
-        if (videoTrack) videoTrack.enabled = videoSwitch;
-      } else if (userStream.current) {
-        const audioTrack = userStream.current.getAudioTracks()[0];
-        if (audioTrack) audioTrack.enabled = audioSwitch;
-      }
-
-      return { ...prev, localUser: { video: videoSwitch, audio: audioSwitch } };
-    });
-    console.log("[RTC] toggleCameraAudio BE-toggle-camera-audio", target);
-    socket.emit("BE-toggle-camera-audio", { roomId, switchTarget: target });
   };
 
   // const clickScreenSharing = () => {
@@ -344,23 +404,6 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
   //   setScreenShare(false);
   // };
 
-  const expandScreen = (e: any) => {
-    const elem = e.target;
-
-    if (elem.requestFullscreen) {
-      elem.requestFullscreen();
-    } else if (elem.mozRequestFullScreen) {
-      /* Firefox */
-      elem.mozRequestFullScreen();
-    } else if (elem.webkitRequestFullscreen) {
-      /* Chrome, Safari & Opera */
-      elem.webkitRequestFullscreen();
-    } else if (elem.msRequestFullscreen) {
-      /* IE/Edge */
-      elem.msRequestFullscreen();
-    }
-  };
-
   const clickBackground = () => {
     if (!showVideoDevices) return;
 
@@ -409,35 +452,9 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
   };
 
   return (
-    <ScrollArea className="w-full h-full ">
-      {/* <Button onClick={clickScreenSharing}>screenshare</Button> */}
-      <Button
-        onClick={() => {
-          toggleCameraAudio("video");
-        }}>
-        toggle video
-      </Button>
-      <Button
-        onClick={() => {
-          toggleCameraAudio("audio");
-        }}>
-        toggle audio
-      </Button>
-      <div>
-        {videoDevices.length > 0 &&
-          videoDevices.map((device) => {
-            return (
-              <div
-                key={device.deviceId}
-                onClick={clickCameraDevice}
-                data-value={device.deviceId}>
-                {device.label}
-              </div>
-            );
-          })}
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-        <Card key={currentUser}>
+    <div className="w-full h-full relative">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+        <Card key={currentUser} id="localUser">
           <AspectRatio ratio={16 / 9}>
             <video
               onClick={expandScreen}
@@ -462,14 +479,75 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
           </AspectRatio>
         </Card> */}
         {peers.map((peer) => (
-          <Card key={peer.peerID}>
+          <Card key={peer.peerID} id={peer.peerID} className="relative">
             <AspectRatio ratio={16 / 9}>
-              <VideoCard peer={peer} />
+              {userVideoAudio[peer.userName]?.video ? (
+                <VideoCard peer={peer} />
+              ) : (
+                <div className="w-full h-full bg-gray-200 rounded-xl" />
+              )}
             </AspectRatio>
+            <div className="absolute top-2 right-2 flex gap-2">
+              {userVideoAudio[peer.userName]?.audio ? null : (
+                <MicOff className="h-4 w-4" />
+              )}
+              {userVideoAudio[peer.userName]?.video ? null : (
+                <VideoOff className="h-4 w-4" />
+              )}
+            </div>
           </Card>
         ))}
       </div>
-    </ScrollArea>
+
+      <div className=" bottom-2 w-full absolute flex justify-center items-center">
+        <div className="flex gap-2 ">
+          <Button
+            className="rounded-full"
+            variant="outline"
+            onClick={toggleMic}>
+            {isMicDisabled ? (
+              <MicOff className="h-4 w-4" />
+            ) : (
+              <Mic className="h-4 w-4" />
+            )}
+          </Button>
+          <Button
+            className="rounded-full"
+            variant="outline"
+            onClick={toggleHeadphone}>
+            {isHeadphoneDisabled ? (
+              <HeadphoneOff className="h-4 w-4" />
+            ) : (
+              <Headphones className="h-4 w-4" />
+            )}
+          </Button>
+          <Button
+            className="rounded-full"
+            variant="outline"
+            onClick={toggleVideo}>
+            {isVideoDisabled ? (
+              <Video className="h-4 w-4" />
+            ) : (
+              <VideoOff className="h-4 w-4" />
+            )}
+          </Button>
+
+          {/* <div>
+            {videoDevices.length > 0 &&
+              videoDevices.map((device) => {
+                return (
+                  <div
+                    key={device.deviceId}
+                    onClick={clickCameraDevice}
+                    data-value={device.deviceId}>
+                    {device.label}
+                  </div>
+                );
+              })}
+          </div> */}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -481,11 +559,11 @@ const VideoCard = ({ peer }: { peer: Peer.Instance }) => {
         ref.current.srcObject = stream;
       }
     });
-    peer.on("track", (track, stream) => {});
   }, [peer]);
 
   return (
     <video
+      onClick={expandScreen}
       className="w-full h-full object-cover rounded-xl"
       playsInline
       autoPlay
