@@ -3,8 +3,8 @@
 import { LoginForm } from "@/components/login-form";
 import { RegisterForm } from "@/components/register-form";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAppSelector } from "@/store/hooks";
+import { useRouter } from "@/app/navigation";
 
 enum FormTypes {
   LOGIN,

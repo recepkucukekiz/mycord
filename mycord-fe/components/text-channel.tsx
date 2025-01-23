@@ -19,6 +19,8 @@ import { Message, SocketEvent } from "@/interfaces/app";
 import { addToSocketEventQueue, removeNewMessage } from "@/store/state";
 import { useToast } from "@/hooks/use-toast";
 import useDayjs from "@/hooks/use-dayjs";
+import { ArrowDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function TextChannel({ channelId }: { channelId: string }) {
   const server = useAppSelector((state) => state.app.currentServer);
@@ -82,6 +84,37 @@ export default function TextChannel({ channelId }: { channelId: string }) {
     setMessage("");
   };
 
+  const scrollToBottom = () => {
+    setIsThereNewMessage(false);
+    if (viewportRef.current) {
+      viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
+    }
+  };
+
+  const [isBottom, setIsBottom] = useState(true);
+  const [isThereNewMessage, setIsThereNewMessage] = useState(false);
+  const handleScroll = () => {
+    const bottom =
+      (viewportRef.current?.scrollHeight ?? 0) -
+        (viewportRef.current?.scrollTop ?? 0) ===
+      viewportRef.current?.clientHeight;
+    if (bottom) {
+      setIsThereNewMessage(false);
+    }
+    setIsBottom(bottom);
+  };
+
+  useEffect(() => {
+    if (viewportRef.current) {
+      viewportRef.current.addEventListener("scroll", handleScroll);
+    }
+    return () => {
+      if (viewportRef.current) {
+        viewportRef.current.removeEventListener("scroll", handleScroll);
+      }
+    };
+  }, [viewportRef.current]);
+
   useEffect(() => {
     console.log("allMessages", allMessages);
     if (viewportRef.current && messages) {
@@ -95,7 +128,7 @@ export default function TextChannel({ channelId }: { channelId: string }) {
     );
     if (thisChatMessages.length === 0) return;
     console.log("newMessages inserting", thisChatMessages);
-
+    setIsThereNewMessage(true);
     setAllMessages((prev) => [...prev, ...thisChatMessages]);
     dispatch(removeNewMessage(thisChatMessages.map((m) => m.id)));
     thisChatMessages
@@ -115,7 +148,7 @@ export default function TextChannel({ channelId }: { channelId: string }) {
       ) : messagesError ? (
         <div>Error</div>
       ) : (
-        <ScrollArea viewportRef={viewportRef} className="w-full h-full ">
+        <ScrollArea viewportRef={viewportRef} className="w-full h-full">
           {(
             allMessages.sort(
               (a, b) =>
@@ -151,6 +184,16 @@ export default function TextChannel({ channelId }: { channelId: string }) {
           ))}
         </ScrollArea>
       )}
+      <div
+        className={cn(
+          "justify-center items-center absolute bottom-20 hidden animate-fade-in",
+          !isBottom && "flex"
+        )}>
+        <Button onClick={scrollToBottom} className="">
+          {isThereNewMessage && "New Messages"}
+          <ArrowDown />
+        </Button>
+      </div>
       <div className="flex gap-2 items-center w-full">
         <Textarea
           onChange={(e) => setMessage(e.target.value)}

@@ -38,12 +38,12 @@ export default function OnlineUsers({
   return (
     <Sidebar {...props}>
       <SidebarHeader className="p-0">
-        <h3 className="text-lg font-bold p-2">Online Users</h3>
+        <h3 className="text-lg font-bold p-4">Online Users</h3>
       </SidebarHeader>
       <Separator />
       <SidebarContent>
         <ScrollArea className="">
-          <div className="p-4">
+          <div className="p-2">
             {onlineUsers.map((online) => (
               <div
                 key={online.id}
