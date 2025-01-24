@@ -16,7 +16,6 @@ export class MessageService {
       where: {
         channel_id: id,
       },
-      
     });
   }
 
@@ -24,9 +23,16 @@ export class MessageService {
     user_id: string,
     channel: CreateMessageDto,
   ): Promise<TextMessage> {
-    return this.textMessageRepository.save({
+    const createdMessage = await this.textMessageRepository.save({
       ...channel,
       user_id,
+    });
+
+    return this.textMessageRepository.findOne({
+      where: {
+        id: createdMessage.id,
+      },
+      relations: ['user', 'channel', 'channel.server'],
     });
   }
 

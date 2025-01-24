@@ -43,6 +43,11 @@ export interface Message {
   user?: User;
 }
 
+export interface MessageNotification extends Message {
+  channel: Channel;
+  server: Server;
+}
+
 export interface SocketEvent {
   id: string;
   name: string;

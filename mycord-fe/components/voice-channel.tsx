@@ -1,7 +1,6 @@
 "use client";
-import { useState, useEffect, useRef, MouseEventHandler, use } from "react";
+import { useState, useEffect, useRef, MouseEventHandler } from "react";
 import {
-  addToSocketEventQueue,
   setIsHeadphoneDisabled,
   setIsMicDisabled,
   setIsVideoDisabled,
@@ -139,10 +138,8 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
   }, []);
 
   useEffect(() => {
-    console.log("VoiceChannel useEffect");
     if (!roomId || !currentUser) return;
-    console.log("VoiceChannel useEffect", roomId, currentUser);
-
+    console.log("isVideoDisabled", isVideoDisabled);
     // Get Video Devices
     navigator.mediaDevices.enumerateDevices().then((devices) => {
       const filtered = devices.filter((device) => device.kind === "videoinput");
@@ -151,7 +148,7 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
 
     // Connect Camera & Mic
     navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
+      .getUserMedia({ video: !isVideoDisabled, audio: !isMicDisabled })
       .then((stream) => {
         if (userVideoRef.current) {
           userVideoRef.current.srcObject = stream;
@@ -237,11 +234,12 @@ export default function VoiceChannel({ channelId }: { channelId: string }) {
 
     return () => {
       // release camera & mic
+      console.log("release camera & mic", userStream.current?.getTracks());
       userStream.current?.getTracks().forEach((track) => track.stop());
       goToBack();
       socket?.disconnect();
     };
-  }, [socket, roomId, currentUser]);
+  }, [socket, roomId, currentUser, isMicDisabled, isVideoDisabled]);
 
   const createPeer = (userId: string, caller: string, stream: MediaStream) => {
     console.log("[RTC] createPeer", userId, caller);

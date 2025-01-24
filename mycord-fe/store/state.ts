@@ -12,23 +12,22 @@ export interface AppState {
   currentServer: ServerDetail | null;
   rtcUserId: string | null;
   onlineUsers: { id: string; user: User }[];
-  socketEventQueue: SocketEvent[];
   socketLatency: number;
-  newMessages: Message[];
 }
 
 const initialState: AppState = {
-  accessToken: getCookie(AUTH_KEY) ?? null,
+  accessToken:
+    typeof window !== "undefined"
+      ? (getCookie(AUTH_KEY) as string | null)
+      : null,
   user: null,
   isMicDisabled: getCookie("isMicDisabled") === "true",
   isHeadphoneDisabled: getCookie("isHeadphoneDisabled") === "true",
-  isVideoDisabled: getCookie("isVideoDisabled") === "true",
+  isVideoDisabled: true,
   currentServer: null,
   rtcUserId: null,
   onlineUsers: [],
-  socketEventQueue: [],
   socketLatency: 0,
-  newMessages: [],
 };
 
 export const appState = createSlice({
@@ -82,33 +81,8 @@ export const appState = createSlice({
     ) => {
       state.onlineUsers = payload;
     },
-    addToSocketEventQueue: (state, { payload }: PayloadAction<SocketEvent>) => {
-      state.socketEventQueue?.push(payload);
-    },
-    removeFromSocketEventQueue: (state, { payload }: PayloadAction<string>) => {
-      state.socketEventQueue = state.socketEventQueue?.filter(
-        (event) => event.id !== payload
-      );
-    },
     setSocketLatency: (state, { payload }: PayloadAction<number>) => {
       state.socketLatency = payload;
-    },
-    addNewMessage: (state, { payload }: PayloadAction<Message>) => {
-      state.newMessages.push(payload);
-    },
-    removeNewMessage: (
-      state,
-      { payload }: PayloadAction<string | string[]>
-    ) => {
-      if (Array.isArray(payload)) {
-        state.newMessages = state.newMessages.filter(
-          (message) => !payload.includes(message.id)
-        );
-      } else {
-        state.newMessages = state.newMessages.filter(
-          (message) => message.id !== payload
-        );
-      }
     },
   },
 });
@@ -122,11 +96,7 @@ export const {
   setCurrentServer,
   setUserId,
   setOnlineUsers,
-  addToSocketEventQueue,
-  removeFromSocketEventQueue,
   setSocketLatency,
-  addNewMessage,
-  removeNewMessage,
 } = appState.actions;
 
 export default appState.reducer;

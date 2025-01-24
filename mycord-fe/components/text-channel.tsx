@@ -14,26 +14,31 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useGetMessagesByChannelQuery } from "@/store/services/appService";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useAppSelector } from "@/store/hooks";
 import { Message, SocketEvent } from "@/interfaces/app";
-import { addToSocketEventQueue, removeNewMessage } from "@/store/state";
 import { useToast } from "@/hooks/use-toast";
 import useDayjs from "@/hooks/use-dayjs";
 import { ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import useSocket from "@/hooks/use-socket";
 
 export default function TextChannel({ channelId }: { channelId: string }) {
+  const dayjs = useDayjs();
+  const { toast } = useToast();
+  const socket = useSocket();
+
+  const [message, setMessage] = useState("");
+  const [allMessages, setAllMessages] = useState<Message[]>([]);
+  const [isBottom, setIsBottom] = useState(true);
+  const [isThereNewMessage, setIsThereNewMessage] = useState(false);
+  const viewportRef = useRef<HTMLDivElement>(null);
+
+  const user = useAppSelector((state) => state.app.user);
   const server = useAppSelector((state) => state.app.currentServer);
   const channel = useAppSelector((state) =>
     state.app.currentServer?.channels.find((c) => c.id === channelId)
   );
-  const dayjs = useDayjs();
-  const { toast } = useToast();
-  const dispatch = useAppDispatch();
-  const newMessages = useAppSelector((state) => state.app.newMessages);
-  const [message, setMessage] = useState("");
-  const [allMessages, setAllMessages] = useState<Message[]>([]);
-  const viewportRef = useRef<HTMLDivElement>(null);
+
   const {
     data: messages,
     isLoading: isMessagesLoading,
@@ -41,58 +46,28 @@ export default function TextChannel({ channelId }: { channelId: string }) {
   } = useGetMessagesByChannelQuery(channelId, {
     refetchOnMountOrArgChange: true,
   });
-  const user = useAppSelector((state) => state.app.user);
-
-  useEffect(() => {
-    if (messages) {
-      setAllMessages([...messages]);
-    }
-  }, [messages]);
-
-  useEffect(() => {
-    dispatch(
-      addToSocketEventQueue({
-        id: Math.random().toString(36).slice(2),
-        name: "join-message-group",
-        data: channelId,
-      })
-    );
-    return () => {
-      dispatch(
-        addToSocketEventQueue({
-          id: Math.random().toString(36).slice(2),
-          name: "leave-message-group",
-          data: channelId,
-        })
-      );
-    };
-  }, []);
 
   const sendMessage = () => {
     if (!message) return;
-    dispatch(
-      addToSocketEventQueue({
-        id: Math.random().toString(36).slice(2),
-        name: "add-new-message",
-        data: {
-          user_id: user?.id,
-          content: message,
-          channel_id: channelId,
-        },
-      })
-    );
+    socket?.emit("add-new-message", {
+      user_id: user?.id,
+      content: message,
+      channel_id: channelId,
+    });
     setMessage("");
   };
 
   const scrollToBottom = () => {
     setIsThereNewMessage(false);
     if (viewportRef.current) {
+      console.log(
+        viewportRef.current.scrollTop,
+        viewportRef.current.scrollHeight
+      );
       viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
     }
   };
 
-  const [isBottom, setIsBottom] = useState(true);
-  const [isThereNewMessage, setIsThereNewMessage] = useState(false);
   const handleScroll = () => {
     const bottom =
       (viewportRef.current?.scrollHeight ?? 0) -
@@ -105,6 +80,14 @@ export default function TextChannel({ channelId }: { channelId: string }) {
   };
 
   useEffect(() => {
+    if (messages) {
+      setAllMessages([...messages]);
+    }
+
+    if (viewportRef.current && messages) {
+      viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
+    }
+
     if (viewportRef.current) {
       viewportRef.current.addEventListener("scroll", handleScroll);
     }
@@ -113,33 +96,45 @@ export default function TextChannel({ channelId }: { channelId: string }) {
         viewportRef.current.removeEventListener("scroll", handleScroll);
       }
     };
-  }, [viewportRef.current]);
+  }, [messages, viewportRef.current, channelId]);
 
   useEffect(() => {
-    console.log("allMessages", allMessages);
-    if (viewportRef.current && messages) {
-      viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
-    }
-  }, [allMessages]);
+    socket?.emit("join-message-group", channelId);
 
-  useEffect(() => {
-    const thisChatMessages = newMessages.filter(
-      (message) => message.channel_id === channelId
-    );
-    if (thisChatMessages.length === 0) return;
-    console.log("newMessages inserting", thisChatMessages);
-    setIsThereNewMessage(true);
-    setAllMessages((prev) => [...prev, ...thisChatMessages]);
-    dispatch(removeNewMessage(thisChatMessages.map((m) => m.id)));
-    thisChatMessages
-      .filter((m) => m.user_id !== user?.id)
-      .forEach((m) => {
-        toast({
-          title: `${m.user?.name} #${channel?.name}-${server?.name}`,
-          description: `${m.content}`,
-        });
-      });
-  }, [messages, newMessages]);
+    socket?.on("new-message", (data: Message) => {
+      if (data.channel_id === channelId) {
+        setIsThereNewMessage(true);
+        setAllMessages((prev) => [...prev, ...[data]]);
+        if (data.user_id !== user?.id) {
+          setIsBottom(false);
+          toast({
+            title: `${data.user?.name} #${channel?.name}-${server?.name}`,
+            description: `${data.content}`,
+          });
+        } else {
+          setTimeout(() => {
+            scrollToBottom();
+          }, 100);
+        }
+      }
+    });
+
+    return () => {
+      socket?.emit("leave-message-group", channelId);
+    };
+  }, [socket]);
+
+  // useEffect(() => {
+  //   console.log("viewportRef changed");
+  //   if (viewportRef.current) {
+  //     viewportRef.current.addEventListener("scroll", handleScroll);
+  //   }
+  //   return () => {
+  //     if (viewportRef.current) {
+  //       viewportRef.current.removeEventListener("scroll", handleScroll);
+  //     }
+  //   };
+  // }, [viewportRef.current]);
 
   return (
     <>
@@ -147,15 +142,13 @@ export default function TextChannel({ channelId }: { channelId: string }) {
         <div>Loading</div>
       ) : messagesError ? (
         <div>Error</div>
+      ) : allMessages.length == 0 ? (
+        <div>
+          Notthing here, start the conversation by typing in the message box
+        </div>
       ) : (
         <ScrollArea viewportRef={viewportRef} className="w-full h-full">
-          {(
-            allMessages.sort(
-              (a, b) =>
-                new Date(a.created_at).getTime() -
-                new Date(b.created_at).getTime()
-            ) || []
-          ).map((message) => (
+          {allMessages.map((message) => (
             <Card key={message.id} className="mb-2 bg-sidebar animate-fade-in">
               <CardHeader className="flex-row gap-2 items-center justify-between p-4">
                 <div className="flex justify-between items-center gap-2">

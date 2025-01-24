@@ -5,9 +5,8 @@ export default function ChatPage() {
   const server = useAppSelector((state) => state.app.currentServer);
 
   return (
-    <div>
-      <p>Chat server home page yani</p>
-      {JSON.stringify(server)}
+    <div className="p-4">
+      <h1 className="font-bold">{server?.name}</h1>
     </div>
   );
 }

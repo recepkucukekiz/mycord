@@ -78,7 +78,7 @@ export class SocketGateway {
     });
 
     if (this.messageListeners[chatId]) {
-      const user = await this.authService.getUserById(data.user_id);
+      const user = this.USERS[client.id];
       this.messageListeners[chatId].forEach((id) => {
         this.server.to(id).emit('new-message', {
           ...data,
@@ -88,6 +88,21 @@ export class SocketGateway {
         });
       });
     }
+    
+    const notificationUsers = Object.keys(this.USERS).filter(
+      u => u !== client.id && !(this.messageListeners[chatId]?.includes(u)),
+    );
+
+    notificationUsers.forEach((id) => {
+      this.server.to(id).emit('new-message-notification', {
+        ...data,
+        id: createdMsg.id,
+        created_at: createdMsg.created_at,
+        user: this.USERS[client.id],
+        channel: createdMsg.channel,
+        server: createdMsg.channel.server,
+      });
+    });
   }
 
   @SubscribeMessage('join-message-group')

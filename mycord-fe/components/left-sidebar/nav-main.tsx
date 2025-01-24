@@ -19,15 +19,12 @@ import {
 } from "@/components/ui/sidebar";
 import { Link } from "@/app/navigation";
 import StrIcon from "../str-icon";
+import { Server } from "@/interfaces/app";
 
 export function NavMain({
   items,
 }: {
-  items: {
-    id: string;
-    name: string;
-    icon?: string;
-  }[];
+  items: Server[];
 }) {
   return (
     <SidebarGroup>

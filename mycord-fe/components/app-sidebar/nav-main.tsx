@@ -1,6 +1,14 @@
 "use client";
 
-import { ChevronRight, HomeIcon, Bell, Plus } from "lucide-react";
+import {
+  ChevronRight,
+  HomeIcon,
+  Bell,
+  Plus,
+  TableProperties,
+  Hash,
+  Volume2,
+} from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -17,7 +25,6 @@ import {
 } from "@/components/ui/sidebar";
 import { Link } from "@/app/navigation";
 import { useCallback, useMemo, useState } from "react";
-import StrIcon from "../str-icon";
 import { Separator } from "../ui/separator";
 import { Channel, ChannelType } from "@/interfaces/app";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
@@ -110,6 +117,17 @@ export function NavMain({ items }: { items: Channel[] }) {
     }
   };
 
+  const getIconByType = useCallback((type: ChannelType) => {
+    switch (type) {
+      case ChannelType.CATEGORY:
+        return <TableProperties />;
+      case ChannelType.TEXT:
+        return <Hash />;
+      case ChannelType.VOICE:
+        return <Volume2 />;
+    }
+  }, []);
+
   return (
     <SidebarGroup>
       <SidebarMenu>
@@ -120,7 +138,7 @@ export function NavMain({ items }: { items: Channel[] }) {
           </Link>
         </SidebarMenuButton>
         <Separator />
-        {items.length > 0 && (
+        {items.length > 0 &&
           items.map((item) => (
             <Collapsible
               key={item.name}
@@ -132,7 +150,7 @@ export function NavMain({ items }: { items: Channel[] }) {
                   <div>
                     <CollapsibleTrigger asChild>
                       <SidebarMenuButton tooltip={item.name}>
-                        {item.icon && <StrIcon icon={item.icon} />}
+                        {getIconByType(item.type)}
                         <span>{item.name}</span>
                         <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                       </SidebarMenuButton>
@@ -144,15 +162,13 @@ export function NavMain({ items }: { items: Channel[] }) {
                             <SidebarMenuSubButton asChild>
                               {subItem.type === ChannelType.VOICE ? (
                                 <div>
-                                  <SidebarMenuButton tooltip={subItem.name}>
+                                  <SidebarMenuButton tooltip={subItem.name} isActive={subItem.id === channelId}>
                                     <Link
                                       href={homepagePath + "/" + subItem.id}
                                       className="flex w-full items-center gap-2">
-                                      {subItem.icon && (
-                                        <StrIcon icon={subItem.icon} />
-                                      )}
+                                      {getIconByType(subItem.type)}
                                       <span>{subItem.name}</span>
-                                      <div className="ml-auto max-h-full flex -space-x-1 *:ring *:ring-background">
+                                      {/* <div className="ml-auto max-h-full flex -space-x-1 *:ring *:ring-background">
                                         <Avatar className="w-4 h-4">
                                           <AvatarImage src="https://github.com/recepkucukekiz.png" />
                                           <AvatarFallback>test</AvatarFallback>
@@ -165,18 +181,16 @@ export function NavMain({ items }: { items: Channel[] }) {
                                           <AvatarImage src="https://github.com/recepkucukekiz.png" />
                                           <AvatarFallback>test</AvatarFallback>
                                         </Avatar>
-                                      </div>
+                                      </div> */}
                                     </Link>
                                   </SidebarMenuButton>
                                 </div>
                               ) : (
                                 <div>
-                                  <SidebarMenuButton asChild>
+                                  <SidebarMenuButton asChild isActive={subItem.id === channelId}>
                                     <Link
                                       href={homepagePath + "/" + subItem.id}>
-                                      {subItem.icon && (
-                                        <StrIcon icon={subItem.icon} />
-                                      )}
+                                      {getIconByType(subItem.type)}
                                       <span>{subItem.name}</span>
                                     </Link>
                                   </SidebarMenuButton>
@@ -190,13 +204,13 @@ export function NavMain({ items }: { items: Channel[] }) {
                   </div>
                 ) : item.type === ChannelType.VOICE ? (
                   <div>
-                    <SidebarMenuButton tooltip={item.name}>
+                    <SidebarMenuButton tooltip={item.name} isActive={item.id === channelId}>
                       <Link
                         href={homepagePath + "/" + item.id}
                         className="flex w-full items-center gap-2">
-                        {item.icon && <StrIcon icon={item.icon} />}
+                        {getIconByType(item.type)}
                         <span>{item.name}</span>
-                        <div className="ml-auto max-h-full flex -space-x-1 *:ring *:ring-background">
+                        {/* <div className="ml-auto max-h-full flex -space-x-1 *:ring *:ring-background">
                           <Avatar className="w-4 h-4">
                             <AvatarImage src="https://github.com/recepkucukekiz.png" />
                             <AvatarFallback>test</AvatarFallback>
@@ -209,15 +223,15 @@ export function NavMain({ items }: { items: Channel[] }) {
                             <AvatarImage src="https://github.com/recepkucukekiz.png" />
                             <AvatarFallback>test</AvatarFallback>
                           </Avatar>
-                        </div>
+                        </div> */}
                       </Link>
                     </SidebarMenuButton>
                   </div>
                 ) : (
                   <div>
-                    <SidebarMenuButton asChild>
+                    <SidebarMenuButton asChild isActive={item.id === channelId}>
                       <Link href={homepagePath + "/" + item.id}>
-                        {item.icon && <StrIcon icon={item.icon} />}
+                        {getIconByType(item.type)}
                         <span>{item.name}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -225,8 +239,7 @@ export function NavMain({ items }: { items: Channel[] }) {
                 )}
               </SidebarMenuItem>
             </Collapsible>
-          ))
-        )}
+          ))}
         {items.length > 0 && <Separator />}
         <SidebarMenuItem>
           <SidebarMenuButton>

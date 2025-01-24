@@ -6,6 +6,7 @@ import VoiceChannel from "@/components/voice-channel";
 import { ChannelType } from "@/interfaces/app";
 import { useAppSelector } from "@/store/hooks";
 import { usePathparams } from "@/hooks/use-pathparams";
+import VoiceChannelTest from "@/components/voice-channel-test";
 
 const messages = Array.from({ length: 50 }).map((_, i, a) => {
   return {
@@ -31,7 +32,8 @@ export default function ChatChannelPage() {
       {channel.type === ChannelType.TEXT ? (
         <TextChannel channelId={channelId} />
       ) : channel.type === ChannelType.VOICE ? (
-        <VoiceChannel channelId={channelId} />
+        // <VoiceChannel channelId={channelId} />
+        <VoiceChannelTest channelId={channelId} />
       ) : (
         <div>Category</div>
       )}
