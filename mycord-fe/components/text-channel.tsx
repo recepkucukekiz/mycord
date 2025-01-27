@@ -58,13 +58,14 @@ export default function TextChannel({ channelId }: { channelId: string }) {
   };
 
   const scrollToBottom = () => {
+    console.log(
+      viewportRef.current?.scrollTop,
+      viewportRef.current?.scrollHeight
+    );
     setIsThereNewMessage(false);
     if (viewportRef.current) {
-      console.log(
-        viewportRef.current.scrollTop,
-        viewportRef.current.scrollHeight
-      );
       viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
+      setIsBottom(true);
     }
   };
 
@@ -80,15 +81,8 @@ export default function TextChannel({ channelId }: { channelId: string }) {
   };
 
   useEffect(() => {
-    if (messages) {
-      setAllMessages([...messages]);
-    }
-
-    if (viewportRef.current && messages) {
-      viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
-    }
-
     if (viewportRef.current) {
+      scrollToBottom();
       viewportRef.current.addEventListener("scroll", handleScroll);
     }
     return () => {
@@ -96,7 +90,15 @@ export default function TextChannel({ channelId }: { channelId: string }) {
         viewportRef.current.removeEventListener("scroll", handleScroll);
       }
     };
-  }, [messages, viewportRef.current, channelId]);
+  }, [viewportRef.current, channelId]);
+
+  useEffect(() => {
+    if (messages) {
+      setAllMessages([...messages]);
+    }
+
+    scrollToBottom();
+  }, [messages]);
 
   useEffect(() => {
     socket?.emit("join-message-group", channelId);
@@ -138,45 +140,35 @@ export default function TextChannel({ channelId }: { channelId: string }) {
 
   return (
     <>
-      {isMessagesLoading ? (
-        <div>Loading</div>
-      ) : messagesError ? (
-        <div>Error</div>
-      ) : allMessages.length == 0 ? (
-        <div>
-          Notthing here, start the conversation by typing in the message box
-        </div>
-      ) : (
-        <ScrollArea viewportRef={viewportRef} className="w-full h-full">
-          {allMessages.map((message) => (
-            <Card key={message.id} className="mb-2 bg-sidebar animate-fade-in">
-              <CardHeader className="flex-row gap-2 items-center justify-between p-4">
-                <div className="flex justify-between items-center gap-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage
-                      src={message?.user?.avatar}
-                      alt={message?.user?.name}
-                    />
-                    <AvatarFallback>{message?.user?.name}</AvatarFallback>
-                  </Avatar>
-                  <CardTitle>{message?.user?.name}</CardTitle>
-                </div>
-                <span>
-                  {dayjs(message.created_at).format("DD MMMM YYYY HH:mm")}
-                </span>
-              </CardHeader>
-              <Separator />
-              <CardContent className="p-4">
-                <p className="whitespace-pre-line">{message.content}</p>
-              </CardContent>
-              {/* <Separator />
+      <ScrollArea viewportRef={viewportRef} className="w-full h-full">
+        {allMessages.map((message) => (
+          <Card key={message.id} className="mb-2 bg-sidebar animate-fade-in">
+            <CardHeader className="flex-row gap-2 items-center justify-between p-4">
+              <div className="flex justify-between items-center gap-2">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage
+                    src={message?.user?.avatar}
+                    alt={message?.user?.name}
+                  />
+                  <AvatarFallback>{message?.user?.name}</AvatarFallback>
+                </Avatar>
+                <CardTitle>{message?.user?.name}</CardTitle>
+              </div>
+              <span>
+                {dayjs(message.created_at).format("DD MMMM YYYY HH:mm")}
+              </span>
+            </CardHeader>
+            <Separator />
+            <CardContent className="p-4">
+              <p className="whitespace-pre-line">{message.content}</p>
+            </CardContent>
+            {/* <Separator />
               <CardFooter className="p-4">
                 <p>Some feature</p>
               </CardFooter> */}
-            </Card>
-          ))}
-        </ScrollArea>
-      )}
+          </Card>
+        ))}
+      </ScrollArea>
       <div
         className={cn(
           "justify-center items-center absolute bottom-20 hidden animate-fade-in",

@@ -23,7 +23,10 @@ export class RTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
   server: Server;
 
   private socketList: SocketList = {};
-
+  private socketUserIdMap: { [socketId: string]: string } = {};
+  private userMediaStates: {
+    [userId: string]: { mic: boolean; video: boolean; headphone: boolean };
+  } = {};
   handleConnection(socket: Socket) {
     console.log(`[RTC] New User connected: ${socket.id}`);
   }
@@ -33,7 +36,6 @@ export class RTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log('[RTC] User disconnected!');
     delete this.socketList[socket.id];
   }
-
 
   @SubscribeMessage('BE-join-room')
   async joinRoom(
@@ -121,5 +123,78 @@ export class RTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
         switchTarget,
       });
     }
+  }
+
+  @SubscribeMessage('join-room')
+  async userJoinRoom(
+    @MessageBody() data: { roomId: string; userId: string },
+    @ConnectedSocket() socket: Socket,
+  ) {
+    const { roomId, userId } = data;
+    socket.join(roomId);
+
+    this.socketUserIdMap[socket.id] = userId;
+
+    const clients = await this.server.in(roomId).fetchSockets();
+    const roomUserIdList = [];
+    clients.forEach((client) => {
+      const userId = this.socketUserIdMap?.[client.id];
+      if (userId) {
+        roomUserIdList.push(userId);
+      }
+    });
+
+    socket.broadcast.to(roomId).emit('room-user-list', {
+      roomId: roomId,
+      users: roomUserIdList,
+    });
+  }
+
+  @SubscribeMessage('leave-room')
+  async userLeaveRoom(
+    @MessageBody() data: { roomId: string },
+    @ConnectedSocket() socket: Socket,
+  ) {
+    const { roomId } = data;
+    socket.leave(roomId);
+
+    delete this.socketUserIdMap[socket.id];
+    delete this.userMediaStates[this.socketUserIdMap?.[socket.id]]; // TODO
+
+    const clients = await this.server.in(roomId).fetchSockets();
+    const roomUserIdList = [];
+    clients.forEach((client) => {
+      const userId = this.socketUserIdMap?.[client.id];
+      if (userId) {
+        roomUserIdList.push(userId);
+      }
+    });
+
+    socket.broadcast.to(roomId).emit('room-user-list', {
+      roomId: roomId,
+      users: roomUserIdList,
+    });
+
+    this.server.to(roomId).emit('media-state', {
+      roomId: roomId,
+      userMediaStates: this.userMediaStates,
+    });
+  }
+
+  @SubscribeMessage('update-media-state')
+  async mediaState(
+    @MessageBody()
+    data: { roomId: string; mic: boolean; video: boolean; headphone: boolean },
+    @ConnectedSocket() socket: Socket,
+  ) {
+    // TODO
+    const { roomId, mic, video, headphone } = data;
+    const userId = this.socketUserIdMap?.[socket.id];
+    this.userMediaStates[userId] = { mic, video, headphone };
+
+    this.server.to(roomId).emit('media-state', {
+      roomId: roomId,
+      userMediaStates: this.userMediaStates,
+    });
   }
 }
